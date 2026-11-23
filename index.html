@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Anonimizador de Prompts IA (PII Scrubber) y Descifrador — IMPERIA Hub</title>
+<meta name="description" content="Limpiador DLP local y gratuito para ocultar datos personales, tarjetas, claves API y DNI/RFC antes de usar ChatGPT, Claude o DeepSeek. Incluye detector de inyecciones y certificado PDF.">
+<script>
+  const cLink = document.createElement('link');
+  cLink.rel = 'canonical';
+  cLink.href = window.location.origin + window.location.pathname;
+  document.head.appendChild(cLink);
+</script>
+<style>
+:root {
+  --primary: #0284c7;
+  --primary-hover: #0369a1;
+  --success: #10b981;
+  --danger: #ef4444;
+  --bg: #f4f6f9;
+  --card-bg: #ffffff;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --accent: #f59e0b;
+  --purple: #8b5cf6;
+  --slate: #334155;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+body { background: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+.wrapper { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: 100%; max-width: 600px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+h1 { font-size: 21px; font-weight: 700; margin-bottom: 4px; text-align: center; letter-spacing: -0.025em; }
+.subtitle { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 20px; }
+.live-meter { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 20px; text-align: center; }
+.meter-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em; }
+.bar-container { background: var(--border); border-radius: 20px; height: 12px; width: 100%; overflow: hidden; position: relative; }
+.bar-fill { background: var(--primary); width: 0%; height: 100%; transition: all 0.4s ease; }
+.group { margin-bottom: 16px; }
+label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+input[type="text"], select, textarea { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; background: #fff; color: var(--text); transition: border 0.2s; }
+textarea { resize: vertical; min-height: 120px; line-height: 1.5; }
+input[type="text"]:focus, select:focus, textarea:focus { border-color: var(--primary); outline: none; }
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 520px) { .row-2 { grid-template-columns: 1fr; } }
+.calc-btn { width: 100%; padding: 14px; background: var(--primary); color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 8px; box-shadow: 0 4px 6px -1px rgba(2,132,199,0.2); transition: background 0.2s; }
+.calc-btn:hover { background: var(--primary-hover); }
+.action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.copy-btn { width: 100%; padding: 10px; background: #f8fafc; color: var(--slate); border: 1px solid var(--border); border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.copy-btn:hover { background: #e2e8f0; }
+.skynet-box { background: #fee2e2; border: 1px solid #fca5a5; border-radius: 12px; padding: 14px; margin-top: 16px; display: none; }
+.skynet-title { font-size: 12px; font-weight: 700; color: var(--danger); margin-bottom: 6px; text-transform: uppercase; text-align: center; letter-spacing: 0.05em; }
+.results { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 20px; display: none; }
+.results-title { font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 10px; text-align: center; text-transform: uppercase; letter-spacing: 0.05em; }
+.res-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px dashed var(--border); align-items: center; }
+.res-row:last-child { border-bottom: none; }
+.res-val { font-weight: 700; color: var(--primary); text-align: right; max-width: 65%; }
+.box-panel { margin-top: 14px; background: #ffffff; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.box-panel.clean { border-color: var(--success); }
+.box-panel.restore { border-color: var(--purple); background: #faf5ff; }
+.box-panel textarea { min-height: 95px; margin-top: 6px; font-size: 13px; }
+.partner-btn { display: block; width: 100%; padding: 11px; background: #fff; border: 1px solid var(--purple); color: var(--purple); border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; text-align: center; margin-top: 12px; text-decoration: none; }
+.partner-btn:hover { background: var(--purple); color: #fff; }
+.math-log-box { background: #f1f5f9; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-top: 12px; font-family: monospace; font-size: 12px; color: var(--slate); display: none; line-height: 1.45; }
+.seo-text { font-size: 12px; color: var(--text-muted); margin-top: 24px; text-align: justify; line-height: 1.4; border-top: 1px solid var(--border); padding-top: 16px; display: none; }
+
+@media print {
+  body { background: #fff; padding: 0; }
+  .wrapper { box-shadow: none; border: none; max-width: 100%; padding: 0; }
+  .no-print, .calc-btn, .action-row, .partner-btn, .ad-banner, .seo-text, .box-panel.restore { display: none !important; }
+  .results, .math-log-box { display: block !important; border: 1px solid #cbd5e1; }
+}
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <h1>Anonimizador de Prompts y Descifrador IA</h1>
+  <div class="subtitle">Limpieza DLP Local de Datos Personales (PII) y Guardia contra Inyecciones</div>
+
+  <div class="live-meter no-print">
+    <div class="meter-label">Índice de Riesgo de Fuga de Datos: <span id="live-preview-zone">Pega un texto, código o contrato</span></div>
+    <div class="bar-container"><div class="bar-fill" id="bar-fill"></div></div>
+  </div>
+  <div class="row-2 no-print">
+    <div class="group">
+      <label for="scrub-mode">Modo de Enmascaramiento</label>
+      <select id="scrub-mode" onchange="updatePreview()">
+        <option value="tags">Etiquetas Inteligentes ([EMAIL_1], [CARD_1]) — Para IA</option>
+        <option value="redact">Censura Estricta (████████) — Para Documentos</option>
+      </select>
+    </div>
+    <div class="group">
+      <label for="custom-secrets">Lista Negra Personal (Separada por comas)</label>
+      <input type="text" id="custom-secrets" placeholder="Ej. Empresa Alfa, Proyecto Titán, Juan Pérez" oninput="updatePreview()">
+    </div>
+  </div>
+
+  <div class="group no-print">
+    <label for="raw-prompt">Texto Original, Código o Contrato (100% local en tu navegador)</label>
+    <textarea id="raw-prompt" placeholder="Pega aquí correos internos, claves API, contratos o registros de clientes antes de enviarlos a ChatGPT, Claude o DeepSeek..." oninput="updatePreview()"></textarea>
+  </div>
+
+  <button class="calc-btn no-print" onclick="runPiiScrubber()">Anonimizar Datos y Detectar Inyecciones</button>
+
+  <div class="results" id="results-box">
+    <div class="results-title">Certificado de Seguridad DLP y Auditoría de Fugas</div>
+    <div class="res-row"><span>Índice de Riesgo de Fuga (Leakage Risk):</span><span class="res-val" id="res-risk-score" style="color:var(--danger)">0 / 100</span></div>
+    <div class="res-row"><span>Entidades PII y Secretos Ocultos:</span><span class="res-val" id="res-pii-count">0</span></div>
+    <div class="res-row"><span>Intentos de Inyección de Prompt:</span><span class="res-val" id="res-injections" style="color:var(--success)">No Detectados</span></div>
+    <div class="res-row"><span>Volumen de Contexto Limpio (Tokens LLM):</span><span class="res-val" id="res-tokens">0</span></div>
+
+    <div class="box-panel clean">
+      <label for="clean-output" style="color:var(--success);">🛡️ Texto Seguro (Listo para pegar en la IA):</label>
+      <textarea id="clean-output" readonly></textarea>
+      <div class="action-row">
+        <button class="copy-btn" id="copy-clean-btn" onclick="copyCleanText()">📋 Copiar Texto Seguro</button>
+        <button class="copy-btn" onclick="window.print()">📄 Descargar Reporte PDF</button>
+      </div>
+      <button class="copy-btn" id="share-btn" style="margin-top:8px;" onclick="shareSettingsUrl()">🔗 Compartir Configuración del Filtro</button>
+    </div>
+
+    <div class="box-panel restore">
+      <label for="ai-response-input" style="color:var(--purple);">🔄 Descifrador Inverso (Pega la respuesta de ChatGPT/Claude con etiquetas):</label>
+      <textarea id="ai-response-input" placeholder="Pega aquí la respuesta de la IA que contiene etiquetas [EMAIL_1], [PHONE_1], etc. para restaurar los datos reales localmente..."></textarea>
+      <button class="copy-btn" style="border-color:var(--purple); color:var(--purple);" onclick="rehydrateAiResponse()">✨ Restaurar Datos Originales en la Respuesta</button>
+    </div>
+
+    <div class="math-log-box" id="math-log-container"></div>
+    <a href="https://amazon.com" target="_blank" class="partner-btn" id="partner-link">📚 Libros sobre Ciberseguridad y Privacidad de Datos en Amazon</a>
+  </div>
+
+  <div class="skynet-box" id="skynet-container">
+    <div class="skynet-title">🚨 Registro de Amenazas y Dictamen de Cumplimiento</div>
+    <div class="res-row" style="border-bottom:none; color:#991b1b; font-size:12px; text-align:justify;"><span id="skynet-verdict">Esperando escaneo del texto en busca de datos confidenciales.</span></div>
+  </div>
+
+  <div id="ads" class="ad-banner"><div id="container-e8c895e6c70ade8e4ef4a72354f42e97"></div></div>
+
+  <div class="seo-text" id="seo-box">
+    Nuestro anonimizador de prompts y limpiador DLP local de datos personales (PII Scrubber &amp; Rehydrator) protege contratos confidenciales, registros financieros, código fuente y datos de clientes antes de enviarlos a ChatGPT, Claude, DeepSeek o Gemini. Operando al 100 % en la memoria local de tu navegador sin subir archivos a servidores externos, el motor oculta tarjetas bancarias, claves API, correos electrónicos, teléfonos, direcciones IPv4, documentos fiscales (DNI/RFC/CURP) y palabras clave personalizadas, detecta ataques de inyección de prompts, genera certificados PDF listos para imprimir y restaura los datos reales en la respuesta de la IA con un clic.
+  </div>
+</div>
+
+<script>
+window.lastAdShowTime = 0;
+
+// MÓDULO IMPERIA ANTI-FRAUDE Y PROTECCIÓN DE ANUNCIOS (ANTI-BAN)
+function showAdsFunc() {
+  if (navigator.webdriver || !navigator.userAgent || navigator.userAgent.includes("Speed Insights") || navigator.userAgent.includes("Lighthouse")) {
+    return false;
+  }
+  const currentTime = Date.now();
+  if (currentTime - window.lastAdShowTime < 60000) {
+    return false;
+  }
+  const c = document.getElementById('ads');
+  if (!c) return false;
+
+  if (!window.adScriptLoaded) {
+    window.atOptions = {'key':'e8c895e6c70ade8e4ef4a72354f42e97','format':'iframe','height':90,'width':728,'params':{} };
+    try {
+      var s = document.createElement('script');
+      s.type = 'text/javascript'; s.async = true;
+      s.src = ['https://', 'bagelstoppage.', 'com/', 'e8c895e6c70ade8e4ef4a72354f42e97/', 'invoke.js'].join('');
+      c.appendChild(s);
+      window.adScriptLoaded = true;
+      window.lastAdShowTime = currentTime;
+    } catch(e) { return false; }
+  }
+  c.style.display = 'flex';
+  return true;
+}
+window.piiVaultMap = {};
+
+window.onload = function() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('mode') === 'redact' || params.get('mode') === 'tags') {
+    document.getElementById('scrub-mode').value = params.get('mode');
+  }
+  if (params.get('secrets')) {
+    document.getElementById('custom-secrets').value = params.get('secrets');
+  }
+  updatePreview();
+};
+
+function processDlpEngine() {
+  const rawText = document.getElementById('raw-prompt').value;
+  const mode = document.getElementById('scrub-mode').value;
+  const customInput = document.getElementById('custom-secrets').value.trim();
+
+  if (!rawText.trim()) return null;
+
+  let cleanText = rawText;
+  const vault = {};
+  let totalHits = 0;
+  let breakdown = [];
+
+  const registerMask = (prefix, matchStr) => {
+    totalHits++;
+    if (mode === 'redact') {
+      return '████████';
+    }
+    const tag = `[${prefix}_${totalHits}]`;
+    vault[tag] = matchStr;
+    return tag;
+  };
+
+  // 1. Lista Negra Personal (secretos corporativos, nombres, proyectos)
+  let customHits = 0;
+  if (customInput) {
+    const terms = customInput.split(',').map(t => t.trim()).filter(t => t.length > 1);
+    terms.forEach(term => {
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const rx = new RegExp(escaped, 'gi');
+      cleanText = cleanText.replace(rx, (m) => {
+        customHits++;
+        return registerMask('SECRET', m);
+      });
+    });
+  }
+  if (customHits > 0) breakdown.push(`Lista negra: ${customHits}`);
+
+  // 2. Claves API y Tokens (sk-..., ghp_..., AIza..., Bearer)
+  let keyHits = 0;
+  cleanText = cleanText.replace(/\b(sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}|AIza[0-9A-Za-z-_]{35}|Bearer\s+[a-zA-Z0-9._-]{20,})\b/g, (m) => {
+    keyHits++;
+    return registerMask('API_KEY', m);
+  });
+  if (keyHits > 0) breakdown.push(`Claves API: ${keyHits}`);
+
+  // 3. Tarjetas Bancarias (13-16 dígitos con espacios, guiones o continuos)
+  let cardHits = 0;
+  cleanText = cleanText.replace(/\b(?:\d[ -]*?){13,16}\b/g, (m) => {
+    const digitsOnly = m.replace(/\D/g, '');
+    if (digitsOnly.length >= 13 && digitsOnly.length <= 16) {
+      cardHits++;
+      return registerMask('CARD', m);
+    }
+    return m;
+  });
+  if (cardHits > 0) breakdown.push(`Tarjetas: ${cardHits}`);
+
+  // 4. Correos Electrónicos
+  let emailHits = 0;
+  cleanText = cleanText.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, (m) => {
+    emailHits++;
+    return registerMask('EMAIL', m);
+  });
+  if (emailHits > 0) breakdown.push(`Emails: ${emailHits}`);
+
+  // 5. Teléfonos LATAM e Internacionales
+  let phoneHits = 0;
+  cleanText = cleanText.replace(/(?:\+?\d{1,3}[\s.-]?)?\(?\d{2,3}\)?[\s.-]?\d{3,4}[\s.-]?\d{4}\b/g, (m) => {
+    if (m.replace(/\D/g, '').length >= 10) {
+      phoneHits++;
+      return registerMask('PHONE', m);
+    }
+    return m;
+  });
+  if (phoneHits > 0) breakdown.push(`Teléfonos: ${phoneHits}`);
+
+  // 6. Direcciones IPv4 (Validación segura de octetos)
+  let ipHits = 0;
+  cleanText = cleanText.replace(/\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\b/g, (m, a, b, c, d) => {
+    if (+a <= 255 && +b <= 255 && +c <= 255 && +d <= 255) {
+      ipHits++;
+      return registerMask('IP_ADDR', m);
+    }
+    return m;
+  });
+  if (ipHits > 0) breakdown.push(`IPs: ${ipHits}`);
+
+  // 7. Identificadores Fiscales LATAM (CURP, RFC, DNI/CUIT)
+  let idHits = 0;
+  cleanText = cleanText.replace(/\b([A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d|[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}|\d{8,11})\b/g, (m) => {
+    idHits++;
+    return registerMask('DOC_ID', m);
+  });
+  if (idHits > 0) breakdown.push(`ID/RFC/DNI: ${idHits}`);
+
+  // 8. Guardia contra Inyecciones de Prompt (Prompt Injection Guard)
+  const injectionPatterns = [
+    /ignore (all )?previous instructions/i,
+    /ignora (todas )?las instrucciones anteriores/i,
+    /olvida (todas )?las instrucciones/i,
+    /system prompt/i,
+    /prompt del sistema/i,
+    /you are now/i,
+    /envía los datos a/i
+  ];
+  let injectionHits = 0;
+  injectionPatterns.forEach(rx => {
+    if (rx.test(rawText)) injectionHits++;
+  });
+
+  // Cálculo del Índice de Riesgo de Fuga (0..100)
+  const wordsCount = (rawText.match(/[a-záéíóúñü0-9'-]+/gi) || []).length || 1;
+  const estTokens = Math.round(cleanText.length / 3.5);
+  let riskScore = Math.min(100, Math.round((keyHits * 35) + (cardHits * 30) + (idHits * 20) + (emailHits * 12) + (phoneHits * 12) + (ipHits * 15) + (customHits * 15) + (injectionHits * 40)));
+
+  const logHtml = `
+    <strong>[LOG] Auditoría Matemática DLP Abierta (Fórmula Zero-Trust):</strong><br>
+    • Fórmula de riesgo: <code>Risk = min(100, Keys×35 + Cards×30 + ID×20 + IP×15 + PII×12 + Injections×40)</code><br>
+    • Sustitución: Keys(${keyHits})×35 + Cards(${cardHits})×30 + ID(${idHits})×20 + IP(${ipHits})×15 + PII(${emailHits + phoneHits + customHits})×12 + Inj(${injectionHits})×40 = <strong>${riskScore} / 100</strong><br>
+    • Categorías detectadas: ${breakdown.length > 0 ? breakdown.join(' | ') : 'Texto limpio (sin vulnerabilidades)'}<br>
+    • Volumen del contexto: ${wordsCount} palabras (~${estTokens} tokens LLM).
+  `;
+
+  return { cleanText, vault, totalHits, injectionHits, riskScore, estTokens, breakdown, logHtml };
+}
+function updatePreview() {
+  const res = processDlpEngine();
+  const preview = document.getElementById('live-preview-zone');
+  const fill = document.getElementById('bar-fill');
+
+  if (!res) {
+    preview.innerText = "Pega un texto, código o contrato";
+    preview.style.color = "var(--text-muted)";
+    fill.style.width = "0%";
+    return;
+  }
+
+  let label = `🟢 Riesgo Bajo (${res.riskScore}/100): Seguro para enviar a la IA`;
+  let color = "var(--success)";
+
+  if (res.riskScore >= 60) {
+    label = `🚨 Riesgo Crítico de Fuga (${res.riskScore}/100): ¡${res.totalHits} datos sensibles detectados!`;
+    color = "var(--danger)";
+  } else if (res.riskScore >= 25) {
+    label = `⚠️ Riesgo Moderado (${res.riskScore}/100): Se recomienda limpiar (${res.totalHits} elementos)`;
+    color = "var(--accent)";
+  }
+
+  preview.innerText = label;
+  preview.style.color = color;
+  fill.style.width = res.riskScore + '%';
+  fill.style.background = color;
+}
+
+function runPiiScrubber() {
+  const res = processDlpEngine();
+  if (!res) {
+    alert("Por favor, pega tu texto original, código o contrato en el campo superior.");
+    return;
+  }
+
+  window.piiVaultMap = res.vault;
+
+  document.getElementById('res-risk-score').innerText = `${res.riskScore} / 100`;
+  document.getElementById('res-risk-score').style.color = res.riskScore >= 60 ? 'var(--danger)' : (res.riskScore >= 25 ? 'var(--accent)' : 'var(--success)');
+  document.getElementById('res-pii-count').innerText = `${res.totalHits} elementos`;
+
+  const injEl = document.getElementById('res-injections');
+  if (res.injectionHits > 0) {
+    injEl.innerText = `⚠️ ${res.injectionHits} Amenaza(s) Detectada(s)`;
+    injEl.style.color = 'var(--danger)';
+  } else {
+    injEl.innerText = "No Detectadas (Limpio)";
+    injEl.style.color = 'var(--success)';
+  }
+
+  document.getElementById('res-tokens').innerText = `~${res.estTokens} tokens`;
+  document.getElementById('clean-output').value = res.cleanText;
+
+  const logBox = document.getElementById('math-log-container');
+  logBox.innerHTML = res.logHtml;
+  logBox.style.display = 'block';
+
+  let verdictText = res.totalHits > 0
+    ? `Se anonimizaron ${res.totalHits} datos confidenciales (${res.breakdown.join(', ')}). Todo el procesamiento ocurrió al 100 % en la memoria local de tu navegador. La llave de restauración inversa está activa en esta pestaña.`
+    : `No se detectaron datos personales sensibles, tarjetas, claves API ni identificadores fiscales. El texto es seguro para la IA.`;
+
+  if (res.injectionHits > 0) {
+    verdictText += ` ¡ADVERTENCIA! Se detectaron instrucciones ocultas de inyección de prompt en este documento. Revísalo manualmente antes de enviarlo a un modelo de IA.`;
+  }
+
+  document.getElementById('skynet-verdict').innerText = verdictText;
+  document.getElementById('results-box').style.display = 'block';
+  document.getElementById('skynet-container').style.display = 'block';
+  document.getElementById('seo-box').style.display = 'block';
+
+  updatePreview();
+  showAdsFunc();
+}
+
+function copyCleanText() {
+  const out = document.getElementById('clean-output');
+  if (!out || !out.value) return;
+  navigator.clipboard.writeText(out.value).then(() => {
+    const btn = document.getElementById('copy-clean-btn');
+    const old = btn.innerText;
+    btn.innerText = "✅ ¡Texto Seguro Copiado!";
+    btn.style.background = "#dcfce7";
+    btn.style.color = "#166534";
+    setTimeout(() => { btn.innerText = old; btn.style.background = "#f8fafc"; btn.style.color = "var(--slate)"; }, 2200);
+  });
+}
+
+function rehydrateAiResponse() {
+  const aiArea = document.getElementById('ai-response-input');
+  if (!aiArea || !aiArea.value.trim()) {
+    alert("Pega la respuesta de la IA que contiene etiquetas [EMAIL_1], [CARD_1], etc. en el cuadro del descifrador.");
+    return;
+  }
+  const keys = Object.keys(window.piiVaultMap);
+  if (keys.length === 0) {
+    alert("Primero ejecuta el anonimizador en modo 'Etiquetas Inteligentes' para generar la llave de restauración local.");
+    return;
+  }
+  let restored = aiArea.value;
+  keys.forEach(tag => {
+    restored = restored.split(tag).join(window.piiVaultMap[tag]);
+  });
+  aiArea.value = restored;
+  alert("✅ ¡Datos originales restaurados correctamente en la respuesta de la IA!");
+}
+
+function shareSettingsUrl() {
+  const mode = document.getElementById('scrub-mode').value;
+  const secrets = document.getElementById('custom-secrets').value.trim();
+  const url = new URL(window.location.origin + window.location.pathname);
+  url.searchParams.set('mode', mode);
+  if (secrets) url.searchParams.set('secrets', secrets);
+
+  navigator.clipboard.writeText(url.toString()).then(() => {
+    const btn = document.getElementById('share-btn');
+    const old = btn.innerText;
+    btn.innerText = "✅ ¡Enlace con Configuración Copiado!";
+    setTimeout(() => { btn.innerText = old; }, 2200);
+  });
+}
+</script>
+</body>
+</html>
